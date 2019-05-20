@@ -1,0 +1,1202 @@
+---
+title: "First Steps - Final Project"
+author: "Winston Jiang & Kitty Cheung"
+date: "4/17/2019"
+output: word_document
+---
+
+```{r, echo = FALSE, message = FALSE}
+library(haven)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(broom)
+library(dplyr)
+library(knitr)
+library(stargazer)
+library(scales)
+library(ggpubr)
+library(cowplot)
+library(reshape)
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+raw_data_0929_1106 = read_sav("September 29 - November 6, 2016 - Information engaged wary - SPSS.sav")
+raw_data_1013_1115 = read_sav("October 13-November 15, 2015 - Educational Ecosystem - SPSS.sav")
+raw_data_0307_0404 = read_sav("March 7-April 4, 2016 - Libraries - SPSS.sav")
+raw_data_0302_0329 = read_sav("ATP W15.sav")
+```
+
+FINISHED GRAPHS:
+Page 2: Smartphone adoption among seniors has nearly quadrupled in the last five years
+
+```{r, echo = FALSE, message = FALSE}
+setwd('/Users/winstonjiang/Desktop/Senior Year/PHP 2511/Final Project')
+
+internet_df <- read_excel("Pg1GraphData.xlsx", sheet = "Internet")
+bband_df <- read_excel("Pg1GraphData.xlsx", sheet = "Broadband")
+smart_df <- read_excel("Pg1GraphData.xlsx", sheet = "Smartphone")
+tablet_df <- read_excel("Pg1GraphData.xlsx", sheet = "Tablet")
+social_df <- read_excel("Pg1GraphData.xlsx", sheet = "Social Media")
+
+internet <- ggplot(internet_df, aes(x = Year, y = Internet, group = 1)) + geom_line() + geom_point()
+bband <- ggplot(bband_df, aes(x = Year, y = Broadband, group = 1)) + geom_line() + geom_point()
+smart <- ggplot(smart_df, aes(x = Year, y = Smartphone, group = 1)) + geom_line() + geom_point()
+tablet <- ggplot(tablet_df, aes(x = Year, y = Tablet, group = 1)) + geom_line() + geom_point()
+social <- ggplot(social_df, aes(x = Year, y = Social_media, group = 1)) + geom_line() + geom_point()
+
+pg2_combine1 = plot_grid(internet, bband, smart, ncol = 3, align = 'h')
+pg2_combine2 = plot_grid(tablet, social, ncol = 2, align = 'h')
+pg2_combine = plot_grid(pg2_combine1, pg2_combine2, ncol = 1, align = 'v')
+plot(pg2_combine)
+
+ggsave("pg2_combine.pdf", pg2_combine)
+```
+
+Page 3: Tech use is especially limited among those ages 75 and up
+
+```{r, echo = FALSE, message = FALSE}
+# select relevant columns
+df = raw_data_0929_1106[c("psraid", "age", "smart2", "smart1", "eminuse", "device1a", "bbhome1", "intmob")]
+
+# refactor age 
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) 
+  
+
+# chart 2.1: Use the internet
+int = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse)) 
+
+# remove those younger than age 65
+int = int[1:4,]
+
+# plot bar graph
+int_chart = ggplot(int, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Use the internet") + theme(axis.title.y=element_blank(),
+                                                      axis.title.x=element_blank(),
+                                                      axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3, color = "#FFFFFF")
+plot(int_chart)
+
+# chart 2.2: Subscribe to home broadband services
+# find percentages of individuals who have broadband by age categories
+broadbnd = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(bbhome1 == 2 & intmob == 1,na.rm = TRUE)/length(bbhome1)) 
+
+broadbnd = broadbnd[1:4,]
+
+# plot bar graph
+broadbnd_chart = ggplot(broadbnd, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + geom_bar(stat = "identity", 
+  fill = "#003366") + coord_flip() + ggtitle("Subscribe to home broadband service") +
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3, color = "#FFFFFF")
+
+plot(broadbnd_chart)
+
+
+# chart 2.3: Own a smart phone
+
+# find percentages of individuals who have smart phones by age categories
+smart = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(smart2 == 1, na.rm = T)/length(smart2))
+
+# remove those younger than age 65
+smart = smart [1:4,]
+
+# plot bar graph
+smart_chart = ggplot(smart, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Own a smart phone") + theme(axis.title.y=element_blank(),
+                                                      axis.title.x=element_blank(),
+                                                      axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3, color = "#FFFFFF")
+
+plot(smart_chart)
+
+# place charts all together
+pg3_combine = plot_grid(int_chart, broadbnd_chart, smart_chart, ncol = 1, align = 'v')
+ggsave("pg3_combine.pdf", pg3_combine)
+plot(pg3_combine)
+```
+
+Page 4 & Page 11: Most seniors say they need help using new electronic devices
+
+```{r, echo = FALSE, message = FALSE}
+# chart 3: Most seniors say they need help using new electronic devices
+df3 = raw_data_1013_1115[c("psraid", "age", "q19a")]
+df3$q19a = as.numeric(df3$q19a)
+df3$q19a = as.factor(df3$q19a)
+
+# refactor age 
+df3 = df3 %>%
+  mutate(age_cat = cut(df3$age, c(18, 30, 50, 65, 200), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "65+" = "[65,200)", "50 - 64" = "[50,65)", "30 - 49" = "[30,50)", "18 - 29" = "[18,30)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "65+", "50 - 64", "30 - 49", "18 - 29"))
+
+# find percentages of by age categories
+help = df3 %>%
+  group_by(age_cat) %>%
+  summarize("Somewhat well" = sum(q19a == 2,na.rm = TRUE)/length(q19a),
+            "Very well" = sum(q19a == 1,na.rm = TRUE)/length(q19a)) 
+
+# wide to long reformat
+help = gather(help, key, q19a4, "Very well":"Somewhat well")
+
+# plot bar graph
+help_chart = ggplot(help[order(help$key, decreasing = T),], aes(x = age_cat, y = q19a4, fill = factor(key, levels = c("Somewhat well", "Very well")), label = round(q19a4,2)*100)) +
+  geom_bar(stat="identity") + scale_fill_manual(values = c("#B2A799", "#003366")) +
+  coord_flip() +
+  ggtitle("Most seniors say they \n need help using new \n electronic devices") + 
+  theme(legend.title = element_blank(), 
+        axis.title.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5),
+          size=4, color = "#FFFFFF")
+
+plot(help_chart)
+ggsave("pg4_help.pdf", help_chart)
+
+```
+
+Page 5: Roughly four-in-ten seniors are smartphone owners
+
+```{r, echo = FALSE, message = FALSE}
+# select relevant rows
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "smart2", "device1a")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<30" = "[1,4)", "30 - <50" = "[4,6)",
+                              "50 - <75" = "[6,7)", "75+" = "[7,10)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "College+", "Some college", "HS or less")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "75+", "50 - <75", "30 - <50", "<30"))
+
+# age graph
+age = df %>%
+  summarize(total = sum(device1a == 1, na.rm = TRUE)/sum(!is.na(raw_data_0929_1106$device1a)))
+age$x = "Total 65+"
+
+# plot age bar graph
+age_chart = ggplot(age, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Cellphone of any kind")
+
+df = df %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat) & age_cat != "18 - 64" & !is.na(device1a))
+
+# calculate percentages for each age category
+df_cell_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(device1a == 1)/sum(device1a == 2 | device1a == 1))
+
+# calculate percentages for each education category
+df_cell_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(device1a == 1)/sum(device1a == 2 | device1a == 1))
+
+df_cell_edu = df_cell_edu[1:3,]
+
+# calculate percentages for each income category
+df_cell_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(device1a == 1)/sum(device1a == 2 | device1a == 1)) 
+
+df_cell_inc = df_cell_inc[1:4,]
+
+# graph for age, education, & income
+df_cell_age_chart = ggplot(df_cell_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_cell_edu_chart = ggplot(df_cell_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_cell_inc_chart = ggplot(df_cell_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+# combine all graphs & save output
+pg5_1 = plot_grid(age_chart, df_cell_age_chart, df_cell_edu_chart, df_cell_inc_chart,
+                  ncol = 1, align = 'v') 
+
+# select relevant rows
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "smart2", "device1a")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<30" = "[1,4)", "30 - <50" = "[4,6)",
+                              "50 - <75" = "[6,7)", "75+" = "[7,10)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "College+", "Some college", "HS or less")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "75+", "50 - <75", "30 - <50", "<30"))
+
+# age graph
+age2 = df %>%
+  summarize(total = sum(smart2 == 1, na.rm = TRUE)/length(smart1))
+age2$x = "Total 65+"
+
+# plot age bar graph
+age2_chart = ggplot(age2, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Smartphone")
+
+# filter out NAs
+df = df %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat) & age_cat != "18 - 64" & !is.na(device1a))
+
+# calculate percentages for each age category
+df_smart_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(smart1 ==1 | smart2 == 1, na.rm = TRUE)/length(smart1))
+
+# calculate percentages for each education category
+df_smart_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(smart1 == 1 | smart2 == 1, na.rm = TRUE)/length(smart1))
+
+df_smart_edu = df_smart_edu[1:3,]
+
+# calculate percentages for each income category
+df_smart_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(smart1 == 1 | smart2 == 1, na.rm = TRUE)/length(smart1)) 
+
+df_smart_inc = df_smart_inc[1:4,]
+
+# graph for age, education, & income
+df_smart_age_chart = ggplot(df_smart_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_smart_edu_chart = ggplot(df_smart_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_smart_inc_chart = ggplot(df_smart_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all graphs & save output
+pg5_2 = plot_grid(age2_chart, df_smart_age_chart, df_smart_edu_chart, df_smart_inc_chart, ncol = 1, align = 'v') 
+
+# combine cell & smart graphs
+pg5_combine = plot_grid(pg5_1, pg5_2, ncol = 2, align = 'h') +
+  ggtitle("Roughly four-in-ten seniors\n are smartphone owners")
+plot(pg5_combine)
+ggsave("pg5_combine.pdf", pg5_combine)
+```
+
+Page 6: Large increases in smartphone ownership among older adults who are affluent, well educated and younger
+
+```{r, echo = FALSE, message = FALSE}
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "smart2", "device1a")]
+
+# refactor age, education, & income
+df = df %>%
+  mutate(age_cat = cut(age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(educ2, c(1, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "Less than college" = "[1,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(inc, c(1, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<75" = "[1,7)", "75+" = "[7,10)"))
+
+# get percentages of affluent, educated, and age 65+
+df2 = df %>%
+  filter(smart1 == 1 | smart1 == 2 | smart2 == 1 | smart2 == 2) %>%
+  summarize("65 - 69" = sum(age_cat == "65 - 69" & (smart1 == 1 | smart2 == 1), na.rm = TRUE)
+            /sum(age_cat != "18 - 64" & !is.na(device1a), na.rm = TRUE), 
+            "College+" = sum(age_cat != "18 - 64" & (smart1 == 1 | smart2 == 1) & edu_cat == "College+",
+                           na.rm = TRUE)/sum(age_cat != "18 - 64" & !is.na(device1a), na.rm = TRUE),
+            "Income 75+" = sum(age_cat != "18 - 64" & (smart1 == 1 | smart2 == 1) & inc_cat == "75+",
+                           na.rm = TRUE)/sum(age_cat != "18 - 64" & !is.na(device1a) & inc != 98 & inc != 99 & !is.na(inc), 
+                           na.rm = TRUE))
+
+# add 2013 comparisons
+df2[2,] = c(.29, .35, .42)
+df2$year = c(2016, 2013)
+df2$year = as.factor(df2$year)
+
+# change from wide to long format
+df3 = gather(df2, key, value, "65 - 69":"Income 75+")
+
+# graph bar graph
+df_chart = ggplot(df3, aes(x = factor(key, levels = c("Income 75+", "College+", "65 - 69")), y = value, label = round(value,2)*100)) + 
+  geom_bar(aes(fill = year), position = position_dodge(1), stat="identity") +
+  scale_fill_manual(values = c("#B2A799", "#003366")) + ylim(0,1.0) +
+  ggtitle("Large increases in smartphone ownership among older adults \n
+            who are affluent, well educated, and younger") +
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_dodge(width= 1), 
+            aes(y=value * .75, fill=year, label=round(value,2)*100, hjust=.5),
+            size = 3, color = "#FFFFFF")
+
+plot(df_chart)
+ggsave("pg6_smartphone.pdf", df_chart)
+```
+
+Page 7: Internet use and broadband adoption among seniors varies greatly by age, income and education
+
+```{r, echo = FALSE, message = FALSE}
+# Page 7: Internet use and broadband adoption among seniors varies greatly by age, income and education
+# select relevant columns
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "eminuse", "intmob", "bbhome1", "home3nw")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<30" = "[1,4)", "30 - <50" = "[4,6)",
+                              "50 - <75" = "[6,7)", "75+" = "[7,10)")) %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat) & age_cat != "18 - 64") %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "College+", "Some college", "HS or less")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "75+", "50 - <75", "30 - <50", "<30"))
+
+# bar graphs for internet users
+# create data for first age graph
+age = df %>%
+  summarize(total = sum(intmob == 1, na.rm = TRUE)/length(intmob)) # closer than intmob == 1 | eminuse == 1
+age$x = "Total 65+"
+
+# plot age bar graph
+age_chart = ggplot(age, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Internet")
+
+# calculate percentages for each age category
+df_int_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse)) 
+
+# calculate percentages for each education category
+df_int_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse))
+
+df_int_edu = df_int_edu[1:3,]
+
+# calculate percentages for each income category
+df_int_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse)) 
+
+df_int_inc = df_int_inc[1:4,]
+
+# graph for age, education, & income
+df_int_age_chart = ggplot(df_int_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_int_edu_chart = ggplot(df_int_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_int_inc_chart = ggplot(df_int_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all graphs & save output
+pg7_1 = plot_grid(age_chart, df_int_age_chart, df_int_edu_chart, df_int_inc_chart,
+                  ncol = 1, align = 'v')
+
+# bar graphs for broadband
+
+# age graph
+age2 = df %>%
+  summarize(total = sum(bbhome1 == 2, na.rm = TRUE)/length(bbhome1))
+age2$x = "Total 65+"
+
+# plot age bar graph
+age2_chart = ggplot(age2, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Broadband")
+
+
+# calculate percentages for each age category
+df_bb_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(bbhome1 == 2,na.rm = TRUE)/length(bbhome1)) 
+
+# calculate percentages for each education category
+df_bb_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(bbhome1 == 2,na.rm = TRUE)/length(bbhome1)) 
+
+df_bb_edu = df_bb_edu[1:3,]
+
+# calculate percentages for each income category
+df_bb_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(bbhome1 == 2,na.rm = TRUE)/length(bbhome1)) 
+
+df_bb_inc = df_bb_inc[1:4,]
+
+# graph for age, education, & income
+df_bb_age_chart = ggplot(df_bb_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_bb_edu_chart = ggplot(df_bb_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_bb_inc_chart = ggplot(df_bb_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all e-reader graphs
+pg7_2 = plot_grid(age2_chart, df_bb_age_chart, df_bb_edu_chart, df_bb_inc_chart,
+                  ncol = 1, align = 'v')
+
+# combine tablet & e-reader graphs
+pg7_combine = plot_grid(pg7_1, pg7_2, ncol = 2, align = 'h')
+plot(pg7_combine)
+ggsave("pg7_combine.pdf", pg7_combine)
+
+```
+
+Page 8: Among seniors, roughly a third own tablets and a fifth own e-readers
+
+```{r, echo = FALSE, message = FALSE}
+# Page 8: Among seniors, roughly a third own tablets and a fifth own e-readers
+
+# select relevant columns
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "device1b", "device1c", "device1d")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<30" = "[1,4)", "30 - <50" = "[4,6)",
+                              "50 - <75" = "[6,7)", "75+" = "[7,10)")) %>%
+  filter(age_cat != "18 - 64") %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "College+", "Some college", "HS or less")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "75+", "50 - <75", "30 - <50", "<30"))
+
+# bar graphs for tablets
+# create data for first age graph
+age = df %>%
+  summarize(total = sum(device1c == 1, na.rm = TRUE)/length(device1c))
+age$x = "Total 65+"
+
+# plot age bar graph
+age_chart = ggplot(age, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Tablet")
+
+# calculate percentages for each age category
+df_tab_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(device1c == 1,na.rm = TRUE)/length(device1c))
+
+# calculate percentages for each education category
+df_tab_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(device1c == 1,na.rm = TRUE)/length(device1c)) 
+
+df_tab_edu = df_tab_edu[1:3,]
+
+# calculate percentages for each income category
+df_tab_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(device1c == 1,na.rm = TRUE)/length(device1c)) 
+
+df_tab_inc = df_tab_inc[1:4,]
+
+# graph for age, education, & income
+df_tab_age_chart = ggplot(df_tab_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_tab_edu_chart = ggplot(df_tab_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_tab_inc_chart = ggplot(df_tab_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all graphs & save output
+pg8_1 = plot_grid(age_chart, df_tab_age_chart, df_tab_edu_chart, df_tab_inc_chart,
+                        ncol = 1, align = 'v')
+
+
+# bar graphs for e-readers
+# create data for first age graph
+age2 = df %>%
+  summarize(total = sum(device1b == 1, na.rm = TRUE)/length(device1b))
+age2$x = "Total 65+"
+
+# plot age bar graph
+age2_chart = ggplot(age2, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("E-reader")
+
+# calculate percentages for each age category
+df_e_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(device1b == 1,na.rm = TRUE)/length(device1b)) 
+
+# calculate percentages for each education category
+df_e_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(device1b == 1,na.rm = TRUE)/length(device1b)) 
+
+df_e_edu = df_e_edu[1:3,]
+
+# calculate percentages for each income category
+df_e_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(device1b == 1,na.rm = TRUE)/length(device1b)) 
+
+df_e_inc = df_e_inc[1:4,]
+
+# graph for age, education, & income
+df_e_age_chart = ggplot(df_e_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_e_edu_chart = ggplot(df_e_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_e_inc_chart = ggplot(df_e_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all e-reader graphs
+pg8_2 = plot_grid(age2_chart, df_e_age_chart, df_e_edu_chart, df_e_inc_chart,
+                  ncol = 1, align = 'v')
+
+
+# combine tablet & e-reader graphs
+pg8_combine = plot_grid(pg8_1, pg8_2, ncol = 2, align = 'h')
+plot(pg8_combine)
+ggsave("pg8_combine.pdf", pg8_combine)
+```
+
+Page 9: Around a third of seniors report using social media
+
+```{r, echo = FALSE, message = FALSE}
+# select relevant columns
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "snsint2", "eminuse")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<$30K" = "[1,4)", "$30K - <$50K" = "[4,6)",
+                              "$50K - <$75K" = "[6,7)", "$75K+" = "[7,10)")) %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat)) %>%  # filter out NA's
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "HS or less", "Some college", "College+")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "<$30K", "$30K - <$50K", "$50K - <$75K", "$75K+"))
+
+# create data for first age graph
+age = df %>%
+  summarize(total = sum(age_cat != "18 - 64", na.rm = TRUE)/length(age_cat))
+age$x = "Total 65+"
+
+# plot age bar graph
+age_chart = ggplot(age, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# create data for rest of graphs
+df = df %>%
+  filter(age_cat != "18 - 64")
+
+# calculate percentages for each age category
+df1 = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(snsint2 == 1,na.rm = TRUE)/length(snsint2)) 
+
+# calculate percentages for each education category
+df2 = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(snsint2 == 1,na.rm = TRUE)/length(snsint2)) 
+
+df2 = df2[1:3,]
+
+# calculate percentages for each income category
+df3 = df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(snsint2 == 1,na.rm = TRUE)/length(snsint2)) 
+
+df3 = df3[1:4,]
+
+# graph for age, education, & income
+df1_chart = ggplot(df1, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df2_chart = ggplot(df2, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df3_chart = ggplot(df3, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all graphs & save output
+pg9_combine = plot_grid(age_chart, df1_chart, df2_chart, df3_chart,
+                        ncol = 1, align = 'v')
+title <- ggdraw() + draw_label("Around a third of seniors \n report using social media",
+                               fontface='bold')
+pg9_combine = plot_grid(title, pg9_combine, ncol=1, rel_heights=c(0.1, 1)) 
+ggsave("pg9_combine.pdf", pg9_combine)
+plot(pg9_combine)
+
+# Need to do: numbers are slightly off but seem acceptable; do need to fix ordering of categories
+```
+
+Page 10: Seniors are less confident when using electronic devices
+
+```{r, echo = FALSE, message = FALSE}
+conf_df = raw_data_1013_1115[c("age", "q20", "psraid", "smart1", "eminuse")]
+
+conf_df = conf_df %>%
+  mutate(age_cat = cut(conf_df$age, c(18, 30, 50, 65, 200), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "65+" = "[65,200)", "50 - 64" = "[50,65)", "30 - 49" = "[30,50)", "18 - 29" = "[18,30)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "65+", "50 - 64", "30 - 49", "18 - 29"))
+
+conf_df = na.omit(conf_df)
+
+conf = conf_df %>%
+  group_by(age_cat) %>%
+  summarize(Very = sum(q20 == 1, na.rm = TRUE)/length(q20),
+            Somewhat = sum(q20 == 2, na.rm = TRUE)/length(q20),
+            "Only a little" = sum(q20 == 3, na.rm = TRUE)/length(q20),
+            "Not at all" = sum(q20 == 4, na.rm = TRUE)/length(q20))
+
+conf = gather(conf, key, value, Very:"Not at all")
+
+conf_chart = ggplot(conf[order(conf$key, decreasing = T),], aes(x = age_cat, y = value, fill = factor(key, levels = c("Not at all", "Only a little", "Somewhat", "Very")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#B2A799", "#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  ggtitle("Seniors are less confident \n when using electronic devices") +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+plot(conf_chart)
+ggsave("pg10_techconf.pdf", conf_chart)
+
+# Numbers are slightly off but pretty acceptable
+```
+
+Page 12: Roughly three-quarters of internet users ages 65 and up say they go online daily
+
+Trial and error revealed that the article removed N/A age categories from the total data set before calculating percentages. Our calculations are still off but it is now only a few percentage points compared to 10-15% from before when we kept the people who's age fell outside the plotted range calculated into the denominator.
+
+```{r, echo = FALSE, message = FALSE}
+intfreq_df = raw_data_0307_0404[c("psraid","age","intfreq", "smart1")]
+
+intfreq_df <- intfreq_df %>%
+  mutate(age_cat = cut(intfreq_df$age, c(18, 30, 50, 65, 200), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "Ages 18 - 29" = "[18,30)", "Ages 30 - 49" = "[30,50)", "Ages 50 - 64" = "[50,65)", 
+  "Ages 65+" = "[65,200)")) %>%
+  mutate(age_cat = fct_relevel(age_cat, "Ages 65+", "Ages 50 - 64", "Ages 30 - 49", "Ages 18 - 29"))
+
+intfreq_df = na.omit(intfreq_df)
+
+internet_use = intfreq_df %>%
+  group_by(age_cat) %>%
+  summarize("Almost constantly" = sum(intfreq == 1, na.rm = TRUE)/length(intfreq),
+            "Several times a day" = sum(intfreq == 2, na.rm = TRUE)/length(intfreq),
+            "About once a day" = sum(intfreq == 3, na.rm = TRUE)/length(intfreq))
+
+internet_use = gather(internet_use, key, value, "Almost constantly":"About once a day")
+
+internet_use_chart = ggplot(internet_use, aes(x = age_cat, y = value, fill = factor(key, levels = c("Almost constantly", "Several times a day", "About once a day")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3) +
+  ggtitle("Roughly three-quarters of internet users \n ages 65 and up say they go online daily") 
+
+smart_use = intfreq_df %>%
+  group_by(age_cat) %>%
+  filter(smart1 == 1) %>%
+  summarize("Almost constantly" = sum(intfreq == 1, na.rm = TRUE)/length(smart1),
+            "Several times a day" = sum(intfreq == 2, na.rm = TRUE)/length(smart1),
+            "About once a day" = sum(intfreq == 3, na.rm = TRUE)/length(smart1))
+
+smart_use = smart_use[1,]
+smart_use = gather(smart_use, key, value, "Almost constantly":"About once a day")
+
+smart_use_chart = ggplot(smart_use, aes(x = age_cat, y = value, fill = factor(key, levels = c("Almost constantly", "Several times a day", "About once a day")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+pg12_combine = plot_grid(internet_use_chart, smart_use_chart, ncol = 1, align = 'v') 
+plot(pg12_combine)
+ggsave("pg12_combine.pdf", pg12_combine)
+```
+
+Page 13: Most seniors say technology has had a mostly positive effect on society
+
+For the following pie chart: the answer "mostly positive"" corresponds to the categorical variable 1, "mostly negative"" corresponds to the categorical variable 2 and "equally positive and negative correspond to categorical variable 3. Categorical variable 4 represents those who did not answer this question and we will be excluding it from this pie chart representation just as the paper did. The responses with NA values are those that belong to adults under the age of 65, who were not relevant for this survey. 
+
+The "mostly positive" group results for our graph match the article's but the "mostly negative" is a few percentage points lower than expected (when compared to the article) and the "equally positive and negative" is a few percentage points higher.
+
+```{r, echo = FALSE, message = FALSE}
+mostly_positive = sum(raw_data_0302_0329$TECH1_W15 == 1, na.rm = TRUE)
+mostly_negative = sum(raw_data_0302_0329$TECH1_W15 == 2, na.rm = TRUE)
+equal = sum(raw_data_0302_0329$TECH1_W15 == 3, na.rm = TRUE)
+
+TECH1_W15 <- data.frame(group = c("Mostly Positive", "Mostly Negative", "Equally Positive/Negative"), value = c(mostly_positive, mostly_negative, equal))
+
+pie = ggplot(TECH1_W15, aes(x = "", y = value, fill = group)) + geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) + geom_text(aes(label = paste0(round(100*value/2293), "%")), position = position_stack(vjust = 0.4)) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "Most seniors say technology has had a mostly positive impact on society") + 
+  theme_classic() + theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), 
+  plot.title = element_text(hjust = 0.3, color = "#666666")) +
+  scale_fill_manual(values = c("#62B1F6","#d3d3d3","#0D4F8B"))
+
+plot(pie)
+ggsave("pg13_pie.pdf", pie)
+```
+
+EXTENSIONS:
+Pg 6 Contribution:
+
+```{r, echo = FALSE, message = FALSE}
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "smart2", "device1a")]
+
+# refactor age, education, & income
+df = df %>%
+  mutate(age_cat = cut(age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(educ2, c(1, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "Less than college" = "[1,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(inc, c(1, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<75" = "[1,7)", "75+" = "[7,10)"))
+
+# get percentages of affluent, educated, and age 65+
+df2 = df %>%
+  summarize("65 - 69" = sum(age_cat == "65 - 69" & (smart1 == 1 | smart2 == 1), na.rm = TRUE)
+            /sum(age_cat != "18 - 64" & !is.na(device1a), na.rm = TRUE), 
+            "College+" = sum(age_cat != "18 - 64" & (smart1 == 1 | smart2 == 1) & edu_cat == "College+",
+                           na.rm = TRUE)/sum(age_cat != "18 - 64" & !is.na(device1a), na.rm = TRUE),
+            "Income 75+" = sum(age_cat != "18 - 64" & (smart1 == 1 | smart2 == 1) & inc_cat == "75+",
+                           na.rm = TRUE)/sum(age_cat != "18 - 64" & !is.na(device1a) & inc != 98 & inc != 99 & !is.na(inc), 
+                           na.rm = TRUE))
+
+# add 2013 comparisons
+df2[2,] = c(.29, .35, .42)
+df2$year = c(2016, 2013)
+df2$year = as.factor(df2$year)
+
+# change from wide to long format
+df3 = gather(df2, key, value, "65 - 69":"Income 75+")
+
+# graph bar graph
+df_chart = ggplot(df3, aes(x = factor(key, levels = c("Income 75+", "College+", "65 - 69")), y = value, label = round(value,2)*100)) + 
+  geom_bar(aes(fill = year), position = position_dodge(1), stat="identity") +
+  scale_fill_manual(values = c("#B2A799", "#003366")) + ylim(0,1.0) +
+  ggtitle("Large increases in smartphone ownership among older adults \n
+            who are affluent, well educated, and younger") +
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_dodge(width= 1), 
+            aes(y=value * .75, fill=year, label=round(value,2)*100, hjust=.5),
+            size = 3, color = "#FFFFFF")
+
+plot(df_chart)
+ggsave("pg6_contribution.pdf", df_chart)
+```
+
+Pg 7 Contribution
+
+```{r, echo = FALSE, message = FALSE}
+# Page 7: Internet use and broadband adoption among seniors varies greatly by age, income and education
+# select relevant columns
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "eminuse", "intmob", "bbhome1", "home3nw")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<30" = "[1,4)", "30 - <50" = "[4,6)",
+                              "50 - <75" = "[6,7)", "75+" = "[7,10)")) %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat) & age_cat != "18 - 64") %>%
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "College+", "Some college", "HS or less")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "75+", "50 - <75", "30 - <50", "<30"))
+
+# bar graphs for internet users
+# create data for first age graph
+age = df %>%
+  summarize(total = sum(intmob == 1, na.rm = TRUE)/length(intmob)) # closer than intmob == 1 | eminuse == 1
+age$x = "Total 65+"
+
+# plot age bar graph
+age_chart = ggplot(age, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Internet")
+
+# calculate percentages for each age category
+df_int_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse)) 
+
+# calculate percentages for each education category
+df_int_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse))
+
+df_int_edu = df_int_edu[1:3,]
+
+# calculate percentages for each income category
+df_int_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(eminuse == 1,na.rm = TRUE)/length(eminuse)) 
+
+df_int_inc = df_int_inc[1:4,]
+
+# graph for age, education, & income
+df_int_age_chart = ggplot(df_int_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_int_edu_chart = ggplot(df_int_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_int_inc_chart = ggplot(df_int_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all graphs & save output
+pg7_1 = plot_grid(age_chart, df_int_age_chart, df_int_edu_chart, df_int_inc_chart,
+                  ncol = 1, align = 'v')
+
+# bar graphs for broadband
+
+# age graph
+age2 = df %>%
+  summarize(total = sum(bbhome1 == 2|bbhome1 == 3, na.rm = TRUE)/sum(!is.na(bbhome1) | !is.na(bbhome1==5)))
+age2$x = "Total 65+"
+
+# plot age bar graph
+age2_chart = ggplot(age2, aes(x = x, y = total, label = round(total,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), axis.title.x=element_blank(),
+        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF") +
+  ggtitle("Broadband")
+
+
+# calculate percentages for each age category
+df_bb_age = df %>%
+  group_by(age_cat) %>%
+  summarize(pct = sum(bbhome1 == 2|bbhome1 == 3,na.rm = TRUE)/sum(!is.na(bbhome1) & !bbhome1==5))
+
+# calculate percentages for each education category
+df_bb_edu = df %>%
+  group_by(edu_cat) %>%
+  summarize(pct = sum(bbhome1 == 2,na.rm = TRUE)/sum(!is.na(bbhome1) & !bbhome1==5))
+
+df_bb_edu = df_bb_edu[1:3,]
+
+# calculate percentages for each income category
+df_bb_inc= df %>%
+  group_by(inc_cat) %>%
+  summarize(pct = sum(bbhome1 == 2|bbhome1 == 3,na.rm = TRUE)/sum(!is.na(bbhome1) & !bbhome1==5))
+
+df_bb_inc = df_bb_inc[1:4,]
+
+# graph for age, education, & income
+df_bb_age_chart = ggplot(df_bb_age, aes(x = age_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Age") + theme(axis.title.y=element_blank(),
+                                        axis.title.x=element_blank(),
+                                        axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_bb_edu_chart = ggplot(df_bb_edu, aes(x = edu_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Education") + theme(axis.title.y=element_blank(),
+                                              axis.title.x=element_blank(),
+                                              axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+df_bb_inc_chart = ggplot(df_bb_inc, aes(x = inc_cat, y = pct, label = round(pct,2)*100)) + 
+  geom_bar(stat = "identity", fill = "#003366") +
+  coord_flip() + ggtitle("Household Income") + theme(axis.title.y=element_blank(),
+                                                     axis.title.x=element_blank(),
+                                                     axis.ticks.y=element_blank()) +
+  geom_text(position = position_stack(vjust = 0.75), size = 3, color = "#FFFFFF")
+
+# combine all e-reader graphs
+pg7_2 = plot_grid(age2_chart, df_bb_age_chart, df_bb_edu_chart, df_bb_inc_chart,
+                  ncol = 1, align = 'v')
+
+# combine tablet & e-reader graphs
+pg7_contribution = plot_grid(pg7_1, pg7_2, ncol = 2, align = 'h')
+plot(pg7_contribution)
+ggsave("pg7_contribution.pdf", pg7_contribution)
+```
+
+Pg 9 Contribution:
+
+```{r, echo = FALSE, message = FALSE}
+# select relevant columns
+df = raw_data_0929_1106[c("age", "psraid", "educ2", "inc", "smart1", "snsint2", "eminuse")]
+
+# refactor age, education, & income, and keep only those who are 65+
+df = df %>%
+  mutate(age_cat = cut(df$age, c(18, 65, 70, 75, 80, 99), right = FALSE)) %>%
+  mutate(age_cat = fct_recode(age_cat, "18 - 64" = "[18,65)", "65 - 69" = "[65,70)",
+                              "70 - 74" = "[70,75)", "75 - 79" = "[75,80)",
+                              "80+" = "[80,99)")) %>%
+  mutate(edu_cat = cut(df$educ2, c(1, 4, 6, 9), right = FALSE)) %>%
+  mutate(edu_cat = fct_recode(edu_cat, "HS or less" = "[1,4)", "Some college" = "[4,6)",
+                              "College+" = "[6,9)")) %>%
+  mutate(inc_cat = cut(df$inc, c(1, 4, 6, 7, 10), right = FALSE)) %>%
+  mutate(inc_cat = fct_recode(inc_cat, "<$30K" = "[1,4)", "$30K - <$50K" = "[4,6)",
+                              "$50K - <$75K" = "[6,7)", "$75K+" = "[7,10)")) %>%
+  filter(!is.na(age_cat) & !is.na(inc_cat) & !is.na(edu_cat)) %>%  # filter out NA's
+  mutate(age_cat = fct_relevel(age_cat, "80+", "75 - 79", "70 - 74", "65 - 69")) %>%
+  mutate(edu_cat = fct_relevel(edu_cat, "HS or less", "Some college", "College+")) %>%
+  mutate(inc_cat = fct_relevel(inc_cat, "<$30K", "$30K - <$50K", "$50K - <$75K", "$75K+"))
+
+# age by income correlation
+age_inc = df %>%
+  group_by(age_cat) %>%
+  summarize("<$30K" = sum(inc_cat == "<$30K", na.rm = TRUE)/length(inc_cat),
+            "$30K - <$50K" = sum(inc_cat == "$30K - <$50K", na.rm = TRUE)/length(inc_cat),
+            "$50K - <$75K" = sum(inc_cat == "$50K - <$75K", na.rm = TRUE)/length(inc_cat),
+            "$75K+" = sum(inc_cat == "$75K+", na.rm = TRUE)/length(inc_cat))
+
+age_inc = gather(age_inc, key, value, "<$30K":"$75K+")
+
+age_inc_chart = ggplot(age_inc[order(age_inc$key, decreasing = T),], aes(x = age_cat, y = value, fill = factor(key, levels = c("$75K+", "$50K - <$75K", "$30K - <$50K", "<$30K")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#B2A799", "#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  ggtitle("Age & Income Correlation") +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+# education by income interaction
+edu_inc = df %>%
+  group_by(edu_cat) %>%
+  summarize("<$30K" = sum(inc_cat == "<$30K", na.rm = TRUE)/length(inc_cat),
+            "$30K - <$50K" = sum(inc_cat == "$30K - <$50K", na.rm = TRUE)/length(inc_cat),
+            "$50K - <$75K" = sum(inc_cat == "$50K - <$75K", na.rm = TRUE)/length(inc_cat),
+            "$75K+" = sum(inc_cat == "$75K+", na.rm = TRUE)/length(inc_cat))
+
+edu_inc = gather(edu_inc, key, value, "<$30K":"$75K+")
+
+edu_inc_chart = ggplot(edu_inc[order(edu_inc$key, decreasing = T),], aes(x = edu_cat, y = value, fill = factor(key, levels = c("$75K+", "$50K - <$75K", "$30K - <$50K", "<$30K")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#B2A799", "#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  ggtitle("Education & Income Correlation") +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+pg9_ext1 = plot_grid(age_inc_chart, edu_inc_chart,
+                        ncol = 1, align = 'v')
+
+# age by income interaction
+ageXinc = df %>%
+  group_by(age_cat) %>%
+  summarize("<$30K" = sum(inc_cat == "<$30K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$30K - <$50K" = sum(inc_cat == "$30K - <$50K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$50K - <$75K" = sum(inc_cat == "$50K - <$75K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$75K+" = sum(inc_cat == "$75K+" & snsint2 == 1, na.rm = TRUE)/length(inc_cat))
+
+ageXinc = ageXinc[1:4,]
+
+ageXinc = gather(ageXinc, key, value, "<$30K":"$75K+")
+
+ageXinc_chart = ggplot(ageXinc[order(ageXinc$key, decreasing = T),], aes(x = age_cat, y = value, fill = factor(key, levels = c("$75K+", "$50K - <$75K", "$30K - <$50K", "<$30K")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#B2A799", "#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+  ggtitle("Social media use: age & income interaction") +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+# education by income interaction
+eduXinc = df %>%
+  group_by(edu_cat) %>%
+  summarize("<$30K" = sum(inc_cat == "<$30K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$30K - <$50K" = sum(inc_cat == "$30K - <$50K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$50K - <$75K" = sum(inc_cat == "$50K - <$75K" & snsint2 == 1, na.rm = TRUE)/length(inc_cat),
+            "$75K+" = sum(inc_cat == "$75K+" & snsint2 == 1, na.rm = TRUE)/length(inc_cat))
+
+eduXinc = gather(eduXinc, key, value, "<$30K":"$75K+")
+
+eduXinc_chart = ggplot(eduXinc[order(eduXinc$key, decreasing = T),], aes(x = edu_cat, y = value, fill = factor(key, levels = c("$75K+", "$50K - <$75K", "$30K - <$50K", "<$30K")), label = round(value,2)*100)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = c("#B2A799", "#CAE1FF", "#6D9BF1", "#003366")) + coord_flip() +
+    ggtitle("Social media use: education & income interaction") +
+  theme(legend.title = element_blank(), axis.title.y = element_blank(), axis.title.x = element_blank(), axis.ticks.y = element_blank()) +
+  geom_text(position = position_stack(vjust = 0.5), size = 3)
+
+# combine all graphs & save output
+pg9_ext2 = plot_grid(ageXinc_chart, eduXinc_chart,
+                        ncol = 1, align = 'v')
+plot(pg9_ext1)
+plot(pg9_ext2)
+ggsave("pg9_ext1.pdf", pg9_ext1)
+ggsave("pg9_ext2.pdf", pg9_ext2)
+```
